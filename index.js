@@ -50,6 +50,33 @@ app.post('/test', async (req, res) => {
     }월 ${currentTime.getDate()}일 ${currentTime.getHours()}시 ${currentTime.getMinutes()}분`;
 
     for (let product of productsOutOfStock) {
+        if (product.name === 'sprite') {
+            product.name = '스프라이트';
+          }
+          if (product.name === 'cola') {
+            product.name = '코카 콜라';
+          }
+          if (product.name === 'welchs') {
+            product.name = '웰치스';
+          }
+          if (product.name === 'swingchip') {
+            product.name = '스윙칩';
+          }
+          if (product.name === 'pepero') {
+            product.name = '아몬드 빼빼로';
+          }
+          if (product.name === 'postick') {
+            product.name = '포스틱';
+          }
+          if (product.name === 'crownsando') {
+            product.name = '크라운산도';
+          }
+          if (product.name === 'oreo') {
+            product.name = '오레오';
+          }
+          if (product.name === 'moncher') {
+            product.name = '몽쉘';
+          }
       const alarm = new Alarm({
         title: `${product.name}을 주문해주세요.`,
         body: `${product.name}의 재고가 다 떨어졌습니다.`,
@@ -149,8 +176,6 @@ app.post('/alarm/register', async (req, res) => {
     const alarm = new Alarm(req.body);
     await alarm.save();
 
-    // 알람 정보를 클라이언트로 보냄
-    // sendDataToClient({ type: 'alarm', message: 'New alarm registered!' });
 
     return res.status(200).json({
       success: true,
@@ -161,16 +186,14 @@ app.post('/alarm/register', async (req, res) => {
 });
 
 app.get('/alarms', async (req, res) => {
-  try {
-    const alarms = await Alarm.find({});
-    return res.status(200).json({
-      success: true,
-      alarms: alarms,
-    });
-  } catch (err) {
-    return res.json({ success: false, err });
-  }
-});
+    try {
+      const alarms = await Alarm.find().sort({ createdAt: -1 }).limit(20);
+      return res.status(200).json({ success: true, alarms: alarms.reverse() });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  
 
 app.post('/onoff', async (req, res) => {
   try {
