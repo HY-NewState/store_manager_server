@@ -8,19 +8,7 @@ const bodyParser = require("body-parser");
 const config = require("./config/dev");
 const server = require('http').createServer(app); // HTTP 서버 생성
 const io = require('socket.io')(server);
-
-
-// const http = require('http').createServer(app);
-// const io = require('socket.io')(http);
-
-io.on('connection', (socket) => {
-    console.log('클라이언트가 연결되었습니다.');
-
-    // 클라이언트로 메시지 전송
-    socket.emit('serverMessage', '서버로부터의 메시지: 안녕하세요!');
-});
-
-
+let onoff = false;
 
 
 app.use(cors());
@@ -35,10 +23,44 @@ mongoose.connect(
 ).then(() => console.log('MongoDB Connected...')) //🔥 연결이 잘 됐는지 확인하기
  .catch(err => console.log(err));
 
-//  // 서버에서 클라이언트로 데이터를 보내는 함수
-// function sendDataToClient(data) {
-//     io.emit('arduinoData', data); // 클라이언트로 데이터를 보냄
-// }
+
+
+
+app.post("/test", async (req, res) => {
+    try {
+        const arrayToUpdate = req.body;
+        console.log(arrayToUpdate);
+
+        // 데이터베이스에 있는 모든 상품의 now_amount를 0으로 설정
+        await Product.updateMany({}, { $set: { now_amount: 0 } });
+
+        // 배열 요소를 순회하면서 해당 상품의 now_amount를 1로 설정
+        for (let name of arrayToUpdate) {
+            // 해당 이름의 상품을 찾아 now_amount를 1로 설정
+            await Product.updateOne({ name }, { $set: { now_amount: 1 } });
+        }
+
+        const today = new Date().toISOString().slice(0, 10); // 오늘 날짜
+        const productsOutOfStock = await Product.find({ now_amount: 0 });
+        const currentTime = new Date(); // 현재 시간
+        const time = `${currentTime.getMonth() + 1}월 ${currentTime.getDate()}일 ${currentTime.getHours()}시 ${currentTime.getMinutes()}분`;
+
+        for (let product of productsOutOfStock) {
+            const alarm = new Alarm({
+                title: `${product.name}을 주문해주세요.`,
+                body: `${product.name}의 재고가 다 떨어졌습니다.`,
+                date: today
+            });
+            await alarm.save();
+            console.log(`${product.name} 알람이 생성되었습니다.`);
+        }
+        socket.emit('dataFromServer', arrayToUpdate, time);
+
+        return res.status(200).json({ success: true, message: "데이터베이스 수정 완료" });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 
 
@@ -58,6 +80,35 @@ app.post("/register", async (req, res) => {
 app.get("/products", async (req, res) => {
     try {
         const products = await Product.find({});
+        products.forEach(product => {
+            if (product.name === "sprite") {
+                product.name = "스프라이트";
+            }
+            if (product.name === "cola") {
+                product.name = "코카 콜라";
+            }
+            if (product.name === "welchs") {
+                product.name = "웰치스";
+            }
+            if (product.name === "swingchip") {
+                product.name = "스윙칩";
+            }
+            if (product.name === "pepero") {
+                product.name = "아몬드 빼빼로";
+            }
+            if (product.name === "postick") {
+                product.name = "포스틱";
+            }
+            if (product.name === "crownsando") {
+                product.name = "크라운산도";
+            }
+            if (product.name === "oreo") {
+                product.name = "오레오";
+            }
+            if (product.name === "moncher") {
+                product.name = "몽쉘";
+            }
+        });
         return res.status(200).json({
             success: true,
             products: products
@@ -113,8 +164,59 @@ app.get("/alarms", async (req, res) => {
     }
 });
 
+app.post("/onoff", async (req, res) => {
+    try {
+      const { onoff_now } = req.body;
+      onoff = onoff_now
+      
+      console.log(onoff_now);
+
+      if (onoff_now) {
+        com6.write('o');
+        console.log("Sent 'o' to Arduino");
+    } else {
+        com6.write('f');
+        console.log("Sent 'f' to Arduino");
+    }
+  
+      return res.status(200).json({ success: true, onoff: onoff_now });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+
+app.get('/onoff', (req, res) => {
+    res.send(onoff);
+})
+
+app.post("/people", async (req, res) =>{
+    try {
+        const people = req.body;
+        console.log(people);
+
+        const currentTime = new Date(); // 현재 시간
+        const time = `${currentTime.getMonth() + 1}월 ${currentTime.getDate()}일 ${currentTime.getHours()}시 ${currentTime.getMinutes()}분`;
+
+        const today = new Date().toISOString().slice(0, 10); // 오늘 날짜
+
+        const alarm = new Alarm({
+            title: `🚨사람이 무단침입했습니다!!🚨`,
+            body: `${time}에 사람이 무단침입했습니다!!`,
+            date: today
+        });
+        await alarm.save();
+        console.log(`${product.name} 알람이 생성되었습니다.`);
+
+    return res.status(200).json({ success: true, message: "데이터베이스 수정 완료" });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+  
+
 const { SerialPort } = require('serialport')
-const com6 = new SerialPort({ path: '/dev/cu.usbmodem141401', baudRate: 9600 }) //시리얼포트와 boudrate 지정
+const com6 = new SerialPort({ path: '/dev/cu.usbmodem142401', baudRate: 9600 }) //시리얼포트와 boudrate 지정
 
 let buffer = ''; // 데이터를 버퍼링할 변수
 
@@ -142,9 +244,9 @@ com6.on('open', function () {
     })
 });
 
-// io.on('connection', (socket) => {
-//     console.log('a user connected');
-// });
+io.on('connection', (socket) => {
+    console.log('a user connected');
+});
 
 
 
