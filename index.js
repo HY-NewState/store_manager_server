@@ -31,19 +31,16 @@ mongoose
 app.post('/test', async (req, res) => {
   try {
     const arrayToUpdate = req.body;
-    console.log(arrayToUpdate);
 
-    // 데이터베이스에 있는 모든 상품의 now_amount를 0으로 설정
-    await Product.updateMany({}, { $set: { now_amount: 0 } });
-
-    // 배열 요소를 순회하면서 해당 상품의 now_amount를 1로 설정
-    for (let name of arrayToUpdate) {
-      // 해당 이름의 상품을 찾아 now_amount를 1로 설정
-      await Product.updateOne({ name }, { $set: { now_amount: 1 } });
-    }
+    // 데이터베이스에서 모든 상품을 가져와 이름과 수량을 배열로 저장
+    const allProducts = await Product.find({}, { name: 1, now_amount: 1 });
+    const previousState = allProducts.map((product) => ({
+      name: product.name,
+      now_amount: product.now_amount,
+    }));
 
     const today = new Date().toISOString().slice(0, 10); // 오늘 날짜
-    const productsOutOfStock = await Product.find({ now_amount: 0 });
+    // const productsOutOfStock = await Product.find({ now_amount: 0 });
     function formatDate(dateString) {
       const date = new Date(dateString);
       const year = date.getFullYear();
@@ -56,43 +53,61 @@ app.post('/test', async (req, res) => {
     }
     const time = formatDate(new Date());
 
-    for (let product of productsOutOfStock) {
-      if (product.name === 'sprite') {
-        product.name = '스프라이트';
+    for (let product of previousState) {
+      // 현재 상태가 1이고 배열에 없는 경우
+      if (product.now_amount === 1 && !arrayToUpdate.includes(product.name)) {
+        await Product.updateOne(
+          { name: product.name },
+          { $set: { now_amount: 0 } }
+        );
+        if (product.name === 'sprite') {
+          product.name = '스프라이트';
+        }
+        if (product.name === 'cola') {
+          product.name = '코카 콜라';
+        }
+        if (product.name === 'welchs') {
+          product.name = '웰치스';
+        }
+        if (product.name === 'swingchip') {
+          product.name = '스윙칩';
+        }
+        if (product.name === 'pepero') {
+          product.name = '아몬드 빼빼로';
+        }
+        if (product.name === 'postick') {
+          product.name = '포스틱';
+        }
+        if (product.name === 'crownsando') {
+          product.name = '크라운산도';
+        }
+        if (product.name === 'oreo') {
+          product.name = '오레오';
+        }
+        if (product.name === 'moncher') {
+          product.name = '몽쉘';
+        }
+        const alarm = new Alarm({
+          title: `${product.name}을 주문해주세요.`,
+          body: `${product.name}의 재고가 다 떨어졌습니다.`,
+          date: time,
+        });
+        await alarm.save();
+        console.log(`${product.name} 알람이 생성되었습니다.`);
+        io.emit('dataFromServer', { product: product.name, time: time });
       }
-      if (product.name === 'cola') {
-        product.name = '코카 콜라';
+
+      // 현재 상태가 0이고 배열에 있는 경우
+      else if (
+        product.now_amount === 0 &&
+        arrayToUpdate.includes(product.name)
+      ) {
+        await Product.updateOne(
+          { name: product.name },
+          { $set: { now_amount: 1 } }
+        );
       }
-      if (product.name === 'welchs') {
-        product.name = '웰치스';
-      }
-      if (product.name === 'swingchip') {
-        product.name = '스윙칩';
-      }
-      if (product.name === 'pepero') {
-        product.name = '아몬드 빼빼로';
-      }
-      if (product.name === 'postick') {
-        product.name = '포스틱';
-      }
-      if (product.name === 'crownsando') {
-        product.name = '크라운산도';
-      }
-      if (product.name === 'oreo') {
-        product.name = '오레오';
-      }
-      if (product.name === 'moncher') {
-        product.name = '몽쉘';
-      }
-      const alarm = new Alarm({
-        title: `${product.name}을 주문해주세요.`,
-        body: `${product.name}의 재고가 다 떨어졌습니다.`,
-        date: today,
-      });
-      await alarm.save();
-      console.log(`${product.name} 알람이 생성되었습니다.`);
     }
-    io.emit('dataFromServer', { productsOutOfStock, time });
 
     return res
       .status(200)
@@ -229,6 +244,13 @@ app.post('/people', async (req, res) => {
   try {
     const people = req.body;
     console.log(people);
+    com6.write('w');
+    console.log("Sent 'w' to Arduino");
+
+    setTimeout(() => {
+      com6.write('f');
+      console.log("Sent 'f' to Arduino after 5 seconds");
+    }, 5000);
 
     const currentTime = new Date(); // 현재 시간
     const time = `${
@@ -254,7 +276,7 @@ app.post('/people', async (req, res) => {
 });
 
 const { SerialPort } = require('serialport');
-const com6 = new SerialPort({ path: '/dev/cu.usbmodem1401', baudRate: 9600 }); //시리얼포트와 boudrate 지정
+const com6 = new SerialPort({ path: '/dev/cu.usbmodem21401', baudRate: 9600 }); //시리얼포트와 boudrate 지정
 
 let buffer = ''; // 데이터를 버퍼링할 변수
 
